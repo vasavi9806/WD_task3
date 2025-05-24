@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tic-Tac-Toe Web App</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0f2027;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      padding: 30px 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      text-align: center;
+      width: 90%;
+      max-width: 500px;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 10px #00ffcc;
+    }
+
+    .input-names input {
+      padding: 8px 12px;
+      margin: 4px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 1rem;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 12px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      font-size: 2.8rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1c1c2b, #2f2f4f);
+      border-radius: 12px;
+      cursor: pointer;
+      color: #00ffc8;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cell:hover {
+      transform: scale(1.07);
+      box-shadow: 0 0 15px #00ffc8;
+    }
+
+    .cell.winning {
+      background: linear-gradient(135deg, #00ff6a, #00ffaa);
+      color: #000;
+      text-shadow: none;
+    }
+
+    #status {
+      font-size: 1.3rem;
+      margin: 10px 0 20px;
+      color: #ffd700;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: linear-gradient(45deg, #ff6b6b, #ff4757);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background: linear-gradient(45deg, #ff857e, #ff6b6b);
+      transform: scale(1.05);
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background-color: rgba(20, 20, 40, 0.95);
+      padding: 30px;
+      border-radius: 16px;
+      text-align: center;
+      color: #fff;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+
+    .modal-content h2 {
+      margin-bottom: 20px;
+      font-size: 2rem;
+      color: #00ffc8;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="backgroundCanvas"></canvas>
+  <div class="container">
+    <h1>Tic-Tac-Toe</h1>
+    <div class="input-names" id="playerInputs">
+      <input type="text" id="playerXName" placeholder="Player X Name">
+      <input type="text" id="playerOName" placeholder="Player O Name">
+    </div>
+    <div id="status">Choose a mode:</div>
+    <button onclick="startGame('player')">Player vs Player</button>
+    <button onclick="startGame('computer')">Player vs Computer</button>
+    <div class="board" id="board"></div>
+    <button onclick="resetGame()">Reset Game</button>
+  </div>
+
+  <div class="modal" id="endModal">
+    <div class="modal-content">
+      <h2 id="modalMessage">Game Over!</h2>
+      <button onclick="closeModal()">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Sound Effects -->
+  <audio id="winSound" src="https://www.soundjay.com/button/sounds/button-3.mp3"></audio>
+  <audio id="drawSound" src="https://www.soundjay.com/button/sounds/button-09.mp3"></audio>
+
+  <script>
+    // Background Canvas Animation
+    const canvas = document.getElementById("backgroundCanvas");
+    const ctx = canvas.getContext("2d");
+    let width, height;
+
+    const symbols = [];
+    const SYMBOLS = ["X", "O"];
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    for (let i = 0; i < 50; i++) {
+      symbols.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        size: 20 + Math.random() * 20,
+        speedX: -0.5 + Math.random(),
+        speedY: -0.5 + Math.random(),
+        symbol: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+        alpha: 0.3 + Math.random() * 0.5
+      });
+    }
+
+    function drawBackground() {
+      ctx.clearRect(0, 0, width, height);
+      symbols.forEach(s => {
+        ctx.save();
+        ctx.globalAlpha = s.alpha;
+        ctx.font = `${s.size}px Segoe UI`;
+        ctx.fillStyle = "#00ffc8";
+        ctx.shadowColor = "#00ffc8";
+        ctx.shadowBlur = 12;
+        ctx.fillText(s.symbol, s.x, s.y);
+        ctx.restore();
+
+        s.x += s.speedX;
+        s.y += s.speedY;
+
+        if (s.x < 0 || s.x > width || s.y < 0 || s.y > height) {
+          s.x = Math.random() * width;
+          s.y = Math.random() * height;
+        }
+      });
+
+      requestAnimationFrame(drawBackground);
+    }
+
+    drawBackground();
+
+    // Tic Tac Toe Logic
+    const board = document.getElementById("board");
+    const statusText = document.getElementById("status");
+    const modal = document.getElementById("endModal");
+    const modalMessage = document.getElementById("modalMessage");
+    const winSound = document.getElementById("winSound");
+    const drawSound = document.getElementById("drawSound");
+    const playerInputs = document.getElementById("playerInputs");
+
+    let cells = [];
+    let currentPlayer = "X";
+    let gameActive = false;
+    let gameMode = "player";
+    let playerNames = { X: "Player X", O: "Player O" };
+
+    function startGame(mode) {
+      gameMode = mode;
+      gameActive = true;
+      currentPlayer = "X";
+      cells = Array(9).fill("");
+      board.innerHTML = "";
+      playerInputs.style.display = gameMode === 'player' ? 'block' : 'none';
+
+      if (mode === 'player') {
+        const xName = document.getElementById("playerXName").value || "Player X";
+        const oName = document.getElementById("playerOName").value || "Player O";
+        playerNames.X = xName;
+        playerNames.O = oName;
+      } else {
+        playerNames.X = "You";
+        playerNames.O = "Computer";
+      }
+
+      statusText.textContent = `Current turn: ${playerNames[currentPlayer]}`;
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.dataset.index = i;
+        cell.addEventListener("click", handleCellClick);
+        board.appendChild(cell);
+      }
+    }
+
+    function handleCellClick(e) {
+      const index = e.target.dataset.index;
+      if (!gameActive || cells[index] !== "") return;
+
+      cells[index] = currentPlayer;
+      e.target.textContent = currentPlayer;
+
+      const winningCombo = getWinningCombo(currentPlayer);
+      if (winningCombo) {
+        highlightWinningCells(winningCombo);
+        showModal(`${playerNames[currentPlayer]} wins!`);
+        winSound.play();
+        gameActive = false;
+        return;
+      }
+
+      if (!cells.includes("")) {
+        showModal("It's a draw!");
+        drawSound.play();
+        gameActive = false;
+        return;
+      }
+
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      statusText.textContent = `Current turn: ${playerNames[currentPlayer]}`;
+
+      if (gameMode === "computer" && currentPlayer === "O") {
+        setTimeout(computerMove, 500);
+      }
+    }
+
+    function computerMove() {
+      if (!gameActive) return;
+      const emptyIndices = cells.map((val, i) => val === "" ? i : null).filter(i => i !== null);
+      const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+      cells[randomIndex] = "O";
+      const cell = document.querySelector(`.cell[data-index='${randomIndex}']`);
+      cell.textContent = "O";
+
+      const winningCombo = getWinningCombo("O");
+      if (winningCombo) {
+        highlightWinningCells(winningCombo);
+        showModal("Computer wins!");
+        winSound.play();
+        gameActive = false;
+        return;
+      }
+
+      if (!cells.includes("")) {
+        showModal("It's a draw!");
+        drawSound.play();
+        gameActive = false;
+        return;
+      }
+
+      currentPlayer = "X";
+      statusText.textContent = `Current turn: ${playerNames[currentPlayer]}`;
+    }
+
+    function getWinningCombo(player) {
+      const combos = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+      return combos.find(combo => combo.every(i => cells[i] === player));
+    }
+
+    function highlightWinningCells(combo) {
+      combo.forEach(i => {
+        document.querySelector(`.cell[data-index='${i}']`).classList.add("winning");
+      });
+    }
+
+    function resetGame() {
+      startGame(gameMode);
+      closeModal();
+    }
+
+    function showModal(message) {
+      modalMessage.textContent = message;
+      modal.style.display = "flex";
+    }
+
+    function closeModal() {
+      modal.style.display = "none";
+    }
+  </script>
+</body>
+</html>
